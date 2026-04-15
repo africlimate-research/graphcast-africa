@@ -10,7 +10,19 @@ from __future__ import annotations
 
 import argparse
 import logging
+import warnings
 from datetime import datetime
+
+warnings.filterwarnings(
+    "ignore",
+    message=".*Dataset.dims.*will be changed to return a set.*",
+    category=FutureWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    message=".*Skipping gradient checkpointing.*",
+    category=UserWarning,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)s  %(message)s")
 LOG = logging.getLogger(__name__)
