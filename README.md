@@ -14,3 +14,22 @@ Deconstructs the [DeepMind GraphCast/GenCast demo notebook](https://colab.resear
 pip install -e ".[dev]"
 python scripts/download_assets.py --assets ./assets
 python scripts/run_forecast.py --source opendata --date 20240601 --time 0000 --lead-time 120
+python scripts/benchmark_gpu.py --source opendata --date 20240601 --time 0000 --lead-time 120 --warmup-runs 1 --benchmark-runs 3 --json
+```
+
+## GPU Benchmarking
+
+Use the dedicated benchmark runner to collect GPU speed and latency metrics for GraphCast runs.
+
+```bash
+graphcast-africa-benchmark-gpu --source opendata --date 20240601 --time 0000 --lead-time 120 --warmup-runs 1 --benchmark-runs 3 --json
+```
+
+The benchmark output includes:
+
+- Data retrieval time
+- Model load time
+- First rollout latency (cold/warmup path)
+- Benchmark rollout latency summary (`avg`, `min`, `max`, `p95`)
+- Throughput in lead-hours per second
+- GPU snapshot from `nvidia-smi` (when available)

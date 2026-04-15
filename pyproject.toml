@@ -34,6 +34,7 @@ dev = ["pytest", "pytest-cov", "black", "ruff"]
 
 [project.scripts]
 graphcast-africa = "scripts.run_forecast:main"
+graphcast-africa-benchmark-gpu = "scripts.benchmark_gpu:main"
 
 [tool.ruff]
 line-length = 88
