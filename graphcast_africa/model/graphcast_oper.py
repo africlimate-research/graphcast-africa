@@ -57,7 +57,7 @@ class GraphCastOper:
                                                     forcings=forcings)
 
         with open(self._asset_path(ASSET_FILES[0]), "rb") as f:
-            self._ckpt  = gc_ckpt.load(f, gc_model.CheckPoint)
+            self._ckpt   = gc_ckpt.load(f, gc_model.CheckPoint)
             self._params = self._ckpt.params
             self._state  = {}
             self._mcfg   = self._ckpt.model_config
@@ -67,7 +67,8 @@ class GraphCastOper:
         self._model = lambda **kw: _apply(params=self._params, state=self._state, **kw)[0]
 
     def run(self, fields_sfc, fields_pl, start_date,
-            lead_time_hours: int = 240, subset_africa: bool = True) -> xr.Dataset:
+            lead_time_hours: int = 240, subset_africa: bool = True,
+            variables: list[str] | None = None) -> xr.Dataset:
         import jax
         from graphcast import data_utils
 
@@ -93,6 +94,17 @@ class GraphCastOper:
         LOG.info("Running JAX rollout (lead_time=%d h) ...", lead_time_hours)
         output: xr.Dataset = self._model(rng=jax.random.PRNGKey(0), inputs=input_xr,
                                           targets_template=template, forcings=forcings)
+
+        # Variable selection first (cheapest — just drops data_vars)
+        if variables is not None:
+            unknown = set(variables) - set(output.data_vars)
+            if unknown:
+                LOG.warning("Requested variables not in output, ignoring: %s", unknown)
+            keep = [v for v in variables if v in output.data_vars]
+            LOG.info("Keeping %d variable(s): %s", len(keep), keep)
+            output = output[keep]
+
+        # Spatial subset second (now operates on fewer variables)
         if subset_africa:
             LOG.info("Subsetting to Africa: lat %s..%s, lon %s..%s",
                      AFRICA_LAT[0], AFRICA_LAT[1], AFRICA_LON[0], AFRICA_LON[1])
