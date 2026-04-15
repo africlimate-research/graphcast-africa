@@ -72,7 +72,8 @@ class GraphCastOper:
         import jax
         from graphcast import data_utils
 
-        from graphcast_africa.model.input_builder import create_training_xarray
+        from graphcast_africa.model.input_builder import (
+            _roll_lon, create_training_xarray)
 
         if self._model is None: self.load()
 
@@ -103,7 +104,9 @@ class GraphCastOper:
             keep = [v for v in variables if v in output.data_vars]
             LOG.info("Keeping %d variable(s): %s", len(keep), keep)
             output = output[keep]
-
+        # Roll lon 0–360 → -180–180 so that negative lons (e.g. -20) are selectable
+        if output.lon.values.min() >= 0 and output.lon.values.max() > 180:
+            output = _roll_lon(output)
         # Spatial subset second (now operates on fewer variables)
         if subset_africa:
             LOG.info("Subsetting to Africa: lat %s..%s, lon %s..%s",

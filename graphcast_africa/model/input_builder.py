@@ -158,3 +158,10 @@ def create_training_xarray(
             training_xarray[patch] = x[patch]
 
     return training_xarray, time_deltas
+
+def _roll_lon(ds: xr.Dataset) -> xr.Dataset:
+    """Roll longitudes from 0–360 to -180–180 if needed."""
+    if ds.lon.values.max() > 180:
+        ds = ds.assign_coords(lon=(ds.lon.values + 180) % 360 - 180)
+        ds = ds.sortby("lon")
+    return ds
