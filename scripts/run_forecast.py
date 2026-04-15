@@ -65,7 +65,7 @@ def main():
         subset_africa=not args.no_subset,
         variables=variables,
     )
-    date_label = f"_{args.date}_{args.time.strftime('%H%M')}Z"
+    date_label = f"_{args.date}_{datetime.strptime(f'{args.time}', '%H%M').strftime('%H')}Z"
     output.to_netcdf(args.output+f"{date_label}.nc")
     LOG.info("Done. Output -> %s", args.output+f"{date_label}.nc")
 
