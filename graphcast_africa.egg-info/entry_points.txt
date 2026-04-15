@@ -1,2 +1,0 @@
-[console_scripts]
-graphcast-africa = scripts.run_forecast:main
