@@ -32,6 +32,7 @@ def summarise_latencies(latencies: list[float]) -> LatencySummary:
     if not latencies:
         raise ValueError("latencies must not be empty")
     ordered = sorted(latencies)
+    # Nearest-rank percentile is intentional for small sample benchmark runs.
     p95_idx = min(len(ordered) - 1, max(0, math.ceil(len(ordered) * 0.95) - 1))
     return LatencySummary(
         runs=len(latencies),
@@ -221,8 +222,9 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, object]:
 def main() -> None:
     args = build_parser().parse_args()
     payload = run_benchmark(args)
+    output = json.dumps(payload, indent=2, sort_keys=True)
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        print(output)
         return
     LOG.info(
         "Benchmark complete: avg=%.3fs p95=%.3fs throughput=%.2f lead-hours/s",
@@ -230,7 +232,7 @@ def main() -> None:
         payload["timing_seconds"]["benchmark"]["p95_seconds"],
         payload["throughput"]["lead_hours_per_second"],
     )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    LOG.debug("Benchmark details:\n%s", output)
 
 
 if __name__ == "__main__":
