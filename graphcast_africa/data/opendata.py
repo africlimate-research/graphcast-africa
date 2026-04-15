@@ -4,15 +4,15 @@ from __future__ import annotations
 import logging
 import os
 
-import numpy as np
 import earthkit.data as ekd
+import numpy as np
 from multiurl import download
 
 from .base import DataSource
 
 LOG = logging.getLogger(__name__)
 _CONSTANTS_URL   = "https://get.ecmwf.int/repository/test-data/ai-models/opendata/constants-0p25.grib2"
-_CONSTANTS_CACHE = os.path.expanduser("~/.cache/graphcast-africa/constants-0p25.grib2")
+_CONSTANTS_CACHE = os.path.expanduser("assets/graphcast-africa/constants-0p25.grib2")
 
 def _ensure_constants():
     os.makedirs(os.path.dirname(_CONSTANTS_CACHE), exist_ok=True)
@@ -29,8 +29,9 @@ def _gh_to_z(ds):
     portable approach is to write converted fields to a temporary GRIB2 buffer
     using eccodes directly, then reload via earthkit.
     """
-    import eccodes
     import tempfile
+
+    import eccodes
 
     G = 9.80665
     out_fields = []
@@ -80,7 +81,8 @@ class OpenDataSource(DataSource):
         stream = ekd.from_source("ecmwf-open-data", date=date, time=time, step=0,
                                  param=[p for p in self.param_sfc if p not in _const],
                                  levtype="sfc", resol="0p25")
-        constants = ekd.from_source("file", _ensure_constants()).sel(param=list(_const))
+        constants = ekd.from_source("file", _ensure_constants())
+        LOG.warning("Constants params found: %s", [f.metadata("shortName") for f in constants])
         return stream + constants
 
     def _load_pl(self, date, time):

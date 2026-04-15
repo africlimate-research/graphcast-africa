@@ -1,6 +1,11 @@
 # Authors: The africlimate AI team
 # SPDX-License-Identifier: MIT
-"""Inlined implementation of create_training_xarray from ecmwf-lab/ai-models-graphcast."""
+"""Inlined implementation of create_training_xarray from ecmwf-lab/ai-models-graphcast.
+
+Adapted from:
+  https://github.com/ecmwf-lab/ai-models-graphcast/blob/main/src/ai_models_graphcast/input.py
+  (C) Copyright 2023 ECMWF, Apache Licence Version 2.0
+"""
 from __future__ import annotations
 
 import datetime
@@ -55,45 +60,63 @@ def create_training_xarray(
         lat = fields_sfc[0].metadata("distinctLatitudes")
         lon = fields_sfc[0].metadata("distinctLongitudes")
 
+        # ── Surface fields ──────────────────────────────────────────────────��─
         fields_sfc = fields_sfc.order_by("param", "valid_datetime")
         sfc = defaultdict(list)
-        given_datetimes_sfc = set()
         for field in fields_sfc:
-            given_datetimes_sfc.add(field.metadata("valid_datetime"))
+            # ← ADD THIS
             sfc[field.metadata("param")].append(field)
 
+        # ── Pressure-level fields ─────────────────────────────────────────────
+        # order_by("param", "valid_datetime", "level") → time-outer, level-inner
+        # i.e. for each param: [t0_lev0, t0_lev1, ..., t1_lev0, t1_lev1, ...]
         fields_pl = fields_pl.order_by("param", "valid_datetime", "level")
         pl = defaultdict(list)
         levels = set()
-        given_datetimes_pl = set()
+        pl_datetimes = set()
         for field in fields_pl:
-            given_datetimes_pl.add(field.metadata("valid_datetime"))
+            pl_datetimes.add(field.metadata("valid_datetime"))
             pl[field.metadata("param")].append(field)
             levels.add(field.metadata("level"))
 
+        # n_times is driven by PL fields — always purely time-varying, no statics
+        n_times  = len(pl_datetimes)   # == len(lagged) == 2
+        n_levels = len(levels)         # == 13
+
+        LOG.debug("n_times=%d  n_levels=%d  n_all_steps=%d", n_times, n_levels, len(all_datetimes))
+
         data_vars = {}
 
+        # Surface variables
+        # Surface variables
         for param, fields in sfc.items():
             if param in ("z", "lsm"):
+                # z: static surface geopotential from constants file
+                # lsm: land-sea mask — treat as static (same value at both timesteps)
                 data_vars[CF_NAME_SFC[param]] = (["lat", "lon"], fields[0].to_numpy())
                 continue
-            data = np.stack([f.to_numpy(dtype=np.float32) for f in fields]).reshape(
-                1, len(given_datetimes_sfc), len(lat), len(lon)
-            )
+
+            # Time-varying SFC: stack → (n_times, h, w), add batch → (1, n_times, h, w)
+            arr  = np.stack([f.to_numpy(dtype=np.float32) for f in fields])
+            data = arr[np.newaxis, ...]
+            # pad future (target) timesteps with NaN
             data = np.pad(
                 data,
-                ((0, 0), (0, len(all_datetimes) - len(given_datetimes_sfc)), (0, 0), (0, 0)),
+                ((0, 0), (0, len(all_datetimes) - n_times), (0, 0), (0, 0)),
                 constant_values=np.nan,
             )
             data_vars[CF_NAME_SFC[param]] = (["batch", "time", "lat", "lon"], data)
 
+        # Pressure-level variables
         for param, fields in pl.items():
-            data = np.stack([f.to_numpy(dtype=np.float32) for f in fields]).reshape(
-                1, len(given_datetimes_pl), len(levels), len(lat), len(lon)
-            )
+            # stack → (n_times * n_levels, h, w)
+            arr  = np.stack([f.to_numpy(dtype=np.float32) for f in fields])
+            # reshape → (n_times, n_levels, h, w), add batch → (1, n_times, n_levels, h, w)
+            data = arr.reshape(n_times, n_levels, len(lat), len(lon))[np.newaxis, ...]
+            # pad future timesteps with NaN
             data = np.pad(
                 data,
-                ((0, 0), (0, len(all_datetimes) - len(given_datetimes_pl)), (0, 0), (0, 0), (0, 0)),
+                ((0, 0), (0, len(all_datetimes) - n_times), (0, 0), (0, 0), (0, 0)),
                 constant_values=np.nan,
             )
             data_vars[CF_NAME_PL[param]] = (["batch", "time", "level", "lat", "lon"], data)
@@ -115,6 +138,7 @@ def create_training_xarray(
         )
 
     with timer("Reindexing"):
+        # GraphCast expects lat ascending (south → north)
         training_xarray = training_xarray.reindex(lat=sorted(training_xarray.lat.values))
 
     if constants:
