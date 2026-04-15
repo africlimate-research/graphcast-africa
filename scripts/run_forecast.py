@@ -65,7 +65,8 @@ def main():
         subset_africa=not args.no_subset,
         variables=variables,
     )
-    output.to_netcdf(args.output+f"{datetime.strptime(f"{args.date}{args.time}", "%Y%m%d%H%M")}.nc")
+    date_label = f"{args.date}_{args.time}"
+    output.to_netcdf(args.output+f"{date_label}.nc")
     LOG.info("Done. Output -> %s", args.output)
 
 if __name__ == "__main__": main()
