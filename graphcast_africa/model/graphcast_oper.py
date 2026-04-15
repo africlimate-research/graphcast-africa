@@ -70,10 +70,8 @@ class GraphCastOper:
             lead_time_hours: int = 240, subset_africa: bool = True) -> xr.Dataset:
         import jax
         from graphcast import data_utils
-        try:
-            from ai_models_graphcast.input import create_training_xarray
-        except ModuleNotFoundError as e:
-            raise ModuleNotFoundError("pip install ai-models-graphcast") from e
+
+        from graphcast_africa.model.input_builder import create_training_xarray
 
         if self._model is None: self.load()
 
