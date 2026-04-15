@@ -88,13 +88,23 @@ def create_training_xarray(
         data_vars = {}
 
         # Surface variables
-        # Surface variables
         for param, fields in sfc.items():
+            if param not in CF_NAME_SFC:
+                LOG.debug("Skipping unknown SFC param %r", param)
+                continue
             if param in ("z", "lsm"):
-                # z: static surface geopotential from constants file
-                # lsm: land-sea mask — treat as static (same value at both timesteps)
+                # static — no time dimension
                 data_vars[CF_NAME_SFC[param]] = (["lat", "lon"], fields[0].to_numpy())
                 continue
+            # time-varying SFC
+            arr  = np.stack([f.to_numpy(dtype=np.float32) for f in fields])
+            data = arr[np.newaxis, ...]
+            data = np.pad(
+                data,
+                ((0, 0), (0, len(all_datetimes) - n_times), (0, 0), (0, 0)),
+                constant_values=np.nan,
+            )
+            data_vars[CF_NAME_SFC[param]] = (["batch", "time", "lat", "lon"], data)
 
             # Time-varying SFC: stack → (n_times, h, w), add batch → (1, n_times, h, w)
             arr  = np.stack([f.to_numpy(dtype=np.float32) for f in fields])
