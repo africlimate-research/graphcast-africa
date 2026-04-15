@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 
+import numpy as np
 import earthkit.data as ekd
 from multiurl import download
 
@@ -22,15 +23,53 @@ def _ensure_constants():
     return _CONSTANTS_CACHE
 
 def _gh_to_z(ds):
+    """Convert geopotential height (gh, m) fields to geopotential (z, m2/s2).
+
+    earthkit-data's Field.copy() signature varies across versions; the safest
+    portable approach is to write converted fields to a temporary GRIB2 buffer
+    using eccodes directly, then reload via earthkit.
+    """
+    import eccodes
+    import tempfile
+
     G = 9.80665
-    from earthkit.data.indexing.fieldlist import FieldArray
-    out = []
+    out_fields = []
+    tmp_paths = []
+
     for f in ds:
         if f.metadata("shortName") == "gh":
-            out.append(f.copy(values=f.to_numpy() * G, shortName="z"))
+            # Get the raw eccodes message handle and clone it
+            msg = f.message()  # bytes of the original GRIB message
+            handle = eccodes.codes_new_from_message(msg)
+            try:
+                # Convert values: geopotential = height * g
+                size = eccodes.codes_get_size(handle, "values")
+                vals = np.array(eccodes.codes_get_array(handle, "values"), dtype=np.float64)
+                vals = vals * G
+                eccodes.codes_set_values(handle, vals)
+                # Update shortName to z (geopotential)
+                eccodes.codes_set(handle, "shortName", "z")
+                # Write to a temp file and reload
+                tmp = tempfile.NamedTemporaryFile(suffix=".grib2", delete=False)
+                eccodes.codes_write(handle, tmp)
+                tmp.flush()
+                tmp.close()
+                tmp_paths.append(tmp.name)
+                out_fields.append(ekd.from_source("file", tmp.name)[0])
+            finally:
+                eccodes.codes_release(handle)
         else:
-            out.append(f)
-    return FieldArray(out)
+            out_fields.append(f)
+
+    from earthkit.data.indexing.fieldlist import FieldArray
+    result = FieldArray(out_fields)
+
+    # Clean up temp files after the FieldArray holds references
+    import atexit
+    for p in tmp_paths:
+        atexit.register(os.unlink, p)
+
+    return result
 
 class OpenDataSource(DataSource):
     area = None  # open data does not support area subsetting
