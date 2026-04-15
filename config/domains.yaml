@@ -1,0 +1,7 @@
+africa:
+  north:  40.0
+  west:  -20.0
+  south: -40.0
+  east:   70.0
+  description: "Full African continent + margins (lat: -40..40, lon: -20..70)"
+africa_area: [40, -20, -40, 70]
