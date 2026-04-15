@@ -97,4 +97,5 @@ def test_run_benchmark_with_mocks(monkeypatch):
     assert payload["timing_seconds"]["first_rollout"] == pytest.approx(0.4)
     assert payload["timing_seconds"]["benchmark"]["runs"] == 2
     assert payload["timing_seconds"]["benchmark"]["avg_seconds"] == pytest.approx(0.55)
-    assert payload["throughput"]["lead_hours_per_second"] == pytest.approx(120 / 0.55)
+    expected = args.lead_time / payload["timing_seconds"]["benchmark"]["avg_seconds"]
+    assert payload["throughput"]["lead_hours_per_second"] == pytest.approx(expected)
