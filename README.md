@@ -13,4 +13,4 @@ Deconstructs the [DeepMind GraphCast/GenCast demo notebook](https://colab.resear
 ```bash
 pip install -e ".[dev]"
 python scripts/download_assets.py --assets ./assets
-python scripts/run_forecast.py --source opendata --date 20260416--time 0000 --lead-time 120
+python scripts/run_forecast.py --source opendata --date 20260415--time 0000 --lead-time 120
