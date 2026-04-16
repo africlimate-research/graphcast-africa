@@ -26,6 +26,7 @@ dependencies = [
     "python-dotenv",
     "tqdm",
     "multiurl",
+    "google-cloud-storage",
 ]
 
 [project.optional-dependencies]
