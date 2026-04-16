@@ -43,8 +43,8 @@ ASSET_FILES = [
 GRID_SMALL = [1.0, 1.0]
 ASSET_FILES_SMALL = [
     (
-        "graphcast/params/GraphCast_small - ERA5 1979-2015 - resolution 1.0 -"
-        " pressure levels 13 - mesh 2to5 - precipitation output only.npz"
+        "params/GraphCast_small - ERA5 1979-2015 - resolution 1.0 - "
+        "pressure levels 13 - mesh 2to5 - precipitation input and output.npz"
     ),
     "stats/diffs_stddev_by_level.nc",
     "stats/mean_by_level.nc",
