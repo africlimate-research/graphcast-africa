@@ -10,7 +10,8 @@ from .base import DataSource
 LOG = logging.getLogger(__name__)
 
 class GRIBFileSource(DataSource):
-    def __init__(self, path: str):
+    def __init__(self, path: str, **kwargs):
+        super().__init__(**kwargs)
         self.path = path
         self._ds  = ekd.from_source("file", path)
 

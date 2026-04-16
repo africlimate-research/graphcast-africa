@@ -17,8 +17,9 @@ from graphcast_africa.fields.graphcast_fields import (AFRICA_LAT, AFRICA_LON,
 LOG = logging.getLogger(__name__)
 
 class GraphCastOper:
-    hour_steps = HOUR_STEPS
-    lagged     = LAGGED_HOURS
+    hour_steps   = HOUR_STEPS
+    lagged       = LAGGED_HOURS
+    _asset_files = ASSET_FILES   # subclasses may override to swap checkpoint
 
     def __init__(self, assets_dir: str = "./assets"):
         self.assets_dir = assets_dir
@@ -39,9 +40,9 @@ class GraphCastOper:
                 "pip install git+https://github.com/deepmind/graphcast.git") from e
 
         LOG.info("Loading GraphCast checkpoint ...")
-        diffs = xr.load_dataset(self._asset_path(ASSET_FILES[1])).compute()
-        mean  = xr.load_dataset(self._asset_path(ASSET_FILES[2])).compute()
-        std   = xr.load_dataset(self._asset_path(ASSET_FILES[3])).compute()
+        diffs = xr.load_dataset(self._asset_path(self._asset_files[1])).compute()
+        mean  = xr.load_dataset(self._asset_path(self._asset_files[2])).compute()
+        std   = xr.load_dataset(self._asset_path(self._asset_files[3])).compute()
 
         def build(model_config, task_config):
             p = gc_model.GraphCast(model_config, task_config)
@@ -56,7 +57,7 @@ class GraphCastOper:
             return build(model_config, task_config)(inputs, targets_template=targets_template,
                                                     forcings=forcings)
 
-        with open(self._asset_path(ASSET_FILES[0]), "rb") as f:
+        with open(self._asset_path(self._asset_files[0]), "rb") as f:
             self._ckpt   = gc_ckpt.load(f, gc_model.CheckPoint)
             self._params = self._ckpt.params
             self._state  = {}

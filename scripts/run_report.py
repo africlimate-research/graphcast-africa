@@ -9,7 +9,7 @@ performance across different GPU types, not for model correctness checks.
 Usage::
 
     python scripts/run_report.py --date 20240601 --assets ./assets
-    python scripts/run_report.py --date 20240601 --time 1200 --source cds --assets ./assets
+    python scripts/run_report.py --date 20240601 --model small --source cds --assets ./assets
 """
 from __future__ import annotations
 
@@ -66,6 +66,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--file", default=None, help="Path to GRIB file (required when --source file)")
     p.add_argument("--assets", default="./assets", help="Path to model assets directory")
+    p.add_argument(
+        "--model",
+        default="operational",
+        choices=["operational", "small"],
+        help=(
+            "Model variant to run: 'operational' (0.25°, default) or 'small' (1°, faster). "
+            "The small model requires 1° input data — use --source cds or --source file."
+        ),
+    )
     return p
 
 
@@ -75,6 +84,7 @@ def _print_report(
     time_str: str,
     source: str,
     assets: str,
+    model_variant: str,
     gpu: dict[str, str] | None,
     data_fetch_s: float,
     model_load_s: float,
@@ -91,6 +101,7 @@ def _print_report(
     print("  Run configuration")
     print(f"    Start         : {date} {time_str}")
     print(f"    Lead time     : {LEAD_TIME_HOURS} h  (10-day forecast)")
+    print(f"    Model variant : {model_variant}")
     print(f"    Data source   : {source}")
     print(f"    Assets        : {assets}")
 
@@ -123,26 +134,49 @@ def main() -> None:
     if args.source == "file" and not args.file:
         sys.exit("error: --file is required when --source file")
 
+    if args.model == "small" and args.source == "opendata":
+        sys.exit(
+            "error: the small model requires 1° input data; "
+            "opendata only provides 0.25°. Use --source cds or --source file."
+        )
+
+    # Select model class and matching asset-files list.
+    if args.model == "small":
+        from graphcast_africa.fields.graphcast_fields import ASSET_FILES_SMALL, GRID_SMALL
+        from graphcast_africa.model.graphcast_small import GraphCastSmall as ModelClass
+        asset_files = ASSET_FILES_SMALL
+        grid = GRID_SMALL
+    else:
+        from graphcast_africa.fields.graphcast_fields import ASSET_FILES, GRID
+        from graphcast_africa.model.graphcast_oper import GraphCastOper as ModelClass
+        asset_files = ASSET_FILES
+        grid = GRID
+
     from graphcast_africa.data.registry import get_source
     from graphcast_africa.model.assets import check_assets
-    from graphcast_africa.model.graphcast_oper import GraphCastOper
 
-    if not check_assets(args.assets):
+    if not check_assets(args.assets, asset_files=asset_files):
         sys.exit(
             f"error: assets missing at {args.assets}. "
-            f"Run: python scripts/download_assets.py --assets {args.assets}"
+            f"Run: python scripts/download_assets.py --model {args.model} --assets {args.assets}"
         )
 
     start_date = datetime.strptime(f"{args.date}{args.time}", "%Y%m%d%H%M").replace(tzinfo=UTC)
 
-    source_kwargs = {"path": args.file} if args.source == "file" else {}
+    source_kwargs: dict = {}
+    if args.source == "file":
+        source_kwargs["path"] = args.file
+    elif args.model == "small":
+        # CDS supports arbitrary grids; pass through so ERA5 is fetched at 1°.
+        source_kwargs["grid"] = grid
+
     src = get_source(args.source, **source_kwargs)
 
     t0 = time.perf_counter()
     fields_sfc, fields_pl = src.retrieve(args.date, args.time)
     data_fetch_s = time.perf_counter() - t0
 
-    model = GraphCastOper(assets_dir=args.assets)
+    model = ModelClass(assets_dir=args.assets)
     t0 = time.perf_counter()
     model.load()
     model_load_s = time.perf_counter() - t0
@@ -168,6 +202,7 @@ def main() -> None:
         time_str=args.time,
         source=args.source,
         assets=args.assets,
+        model_variant=args.model,
         gpu=gpu,
         data_fetch_s=data_fetch_s,
         model_load_s=model_load_s,
@@ -177,3 +212,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
