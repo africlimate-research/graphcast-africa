@@ -88,6 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-subset", action="store_true")
     p.add_argument("--vars", default=None)
     p.add_argument("--json", action="store_true", help="Print benchmark output as JSON")
+    p.add_argument(
+        "--model", default="operational", choices=["operational", "small"],
+        help="Model variant: 'operational' (0.25°, default) or 'small' (1°, faster). "
+             "The small model requires 1° input — use --source cds or --source file.",
+    )
     return p
 
 
@@ -113,20 +118,28 @@ def _run_once(
     return time.perf_counter() - t0
 
 
-def _check_assets(path: str) -> bool:
+def _check_assets(path: str, asset_files=None) -> bool:
     from graphcast_africa.model.assets import check_assets
 
-    return check_assets(path)
+    return check_assets(path, asset_files=asset_files)
 
 
-def _get_source(source: str, file_path: str | None):
+def _get_source(source: str, file_path: str | None, grid=None):
     from graphcast_africa.data.registry import get_source
 
-    kwargs = {"path": file_path} if source == "file" else {}
+    kwargs: dict = {}
+    if source == "file":
+        kwargs["path"] = file_path
+    elif grid is not None:
+        kwargs["grid"] = grid
     return get_source(source, **kwargs)
 
 
-def _new_model(assets_dir: str):
+def _new_model(assets_dir: str, model: str = "operational"):
+    if model == "small":
+        from graphcast_africa.model.graphcast_small import GraphCastSmall
+
+        return GraphCastSmall(assets_dir=assets_dir)
     from graphcast_africa.model.graphcast_oper import GraphCastOper
 
     return GraphCastOper(assets_dir=assets_dir)
@@ -135,14 +148,31 @@ def _new_model(assets_dir: str):
 def run_benchmark(args: argparse.Namespace) -> dict[str, object]:
     if args.source == "file" and not args.file:
         raise ValueError("--file is required when --source file")
+    if getattr(args, "model", "operational") == "small" and args.source == "opendata":
+        raise ValueError(
+            "the small model requires 1° input data; "
+            "opendata only provides 0.25°. Use --source cds or --source file."
+        )
     if args.warmup_runs < 0:
         raise ValueError("--warmup-runs must be >= 0")
     if args.benchmark_runs <= 0:
         raise ValueError("--benchmark-runs must be > 0")
-    if not _check_assets(args.assets):
+
+    model_variant = getattr(args, "model", "operational")
+
+    if model_variant == "small":
+        from graphcast_africa.fields.graphcast_fields import ASSET_FILES_SMALL, GRID_SMALL
+        asset_files = ASSET_FILES_SMALL
+        grid = GRID_SMALL
+    else:
+        from graphcast_africa.fields.graphcast_fields import ASSET_FILES
+        asset_files = ASSET_FILES
+        grid = None
+
+    if not _check_assets(args.assets, asset_files=asset_files):
         raise FileNotFoundError(
             f"Assets are missing at {args.assets}. "
-            f"Run: python scripts/download_assets.py --assets {args.assets}"
+            f"Run: python scripts/download_assets.py --model {model_variant} --assets {args.assets}"
         )
 
     variables = [v.strip() for v in args.vars.split(",")] if args.vars else None
@@ -151,11 +181,11 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, object]:
     )
 
     t_fetch0 = time.perf_counter()
-    src = _get_source(args.source, args.file)
+    src = _get_source(args.source, args.file, grid=grid)
     fields_sfc, fields_pl = src.retrieve(args.date, args.time)
     data_fetch_seconds = time.perf_counter() - t_fetch0
 
-    model = _new_model(assets_dir=args.assets)
+    model = _new_model(assets_dir=args.assets, model=model_variant)
     t_load0 = time.perf_counter()
     model.load()
     model_load_seconds = time.perf_counter() - t_load0
@@ -196,6 +226,7 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, object]:
 
     payload: dict[str, object] = {
         "run_config": {
+            "model": model_variant,
             "source": args.source,
             "date": args.date,
             "time": args.time,

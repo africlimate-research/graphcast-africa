@@ -40,25 +40,53 @@ def main():
     p.add_argument("--vars",      default=None,
                    help="Comma-separated CF variable names to keep, e.g. "
                         "2m_temperature,mean_sea_level_pressure,total_precipitation_6hr")
+    p.add_argument(
+        "--model", default="operational", choices=["operational", "small"],
+        help="Model variant: 'operational' (0.25°, default) or 'small' (1°, faster). "
+             "The small model requires 1° input — use --source cds or --source file.",
+    )
     args = p.parse_args()
 
     if args.source == "file" and not args.file:
         p.error("--file is required when --source file")
 
+    if args.model == "small" and args.source == "opendata":
+        p.error(
+            "the small model requires 1° input data; "
+            "opendata only provides 0.25°. Use --source cds or --source file."
+        )
+
     variables = [v.strip() for v in args.vars.split(",")] if args.vars else None
 
+    if args.model == "small":
+        from graphcast_africa.fields.graphcast_fields import ASSET_FILES_SMALL, GRID_SMALL
+        from graphcast_africa.model.graphcast_small import GraphCastSmall as ModelClass
+        asset_files = ASSET_FILES_SMALL
+        grid = GRID_SMALL
+    else:
+        from graphcast_africa.fields.graphcast_fields import ASSET_FILES, GRID
+        from graphcast_africa.model.graphcast_oper import GraphCastOper as ModelClass
+        asset_files = ASSET_FILES
+        grid = GRID
+
     from graphcast_africa.model.assets import check_assets
-    if not check_assets(args.assets):
-        LOG.error("Run: python scripts/download_assets.py --assets %s", args.assets)
+    if not check_assets(args.assets, asset_files=asset_files):
+        LOG.error("Run: python scripts/download_assets.py --model %s --assets %s",
+                  args.model, args.assets)
         raise SystemExit(1)
 
+    source_kwargs: dict = {}
+    if args.source == "file":
+        source_kwargs["path"] = args.file
+    elif args.model == "small":
+        source_kwargs["grid"] = grid
+
     from graphcast_africa.data.registry import get_source
-    src = get_source(args.source, **( {"path": args.file} if args.source == "file" else {} ))
+    src = get_source(args.source, **source_kwargs)
     LOG.info("Retrieving input fields ...")
     fields_sfc, fields_pl = src.retrieve(args.date, args.time)
 
-    from graphcast_africa.model.graphcast_oper import GraphCastOper
-    output = GraphCastOper(assets_dir=args.assets).run(
+    output = ModelClass(assets_dir=args.assets).run(
         fields_sfc=fields_sfc, fields_pl=fields_pl,
         start_date=datetime.strptime(f"{args.date}{args.time}", "%Y%m%d%H%M"),
         lead_time_hours=args.lead_time,
