@@ -34,7 +34,7 @@ def main():
     p.add_argument("--date",      required=True)
     p.add_argument("--time",      default="0000")
     p.add_argument("--lead-time", default=120, type=int)
-    p.add_argument("--output",    default="forecast_africa.nc")
+    p.add_argument("--output",    default="graphcast")
     p.add_argument("--assets",    default="./assets")
     p.add_argument("--no-subset", action="store_true")
     p.add_argument("--vars",      default=None,
@@ -65,7 +65,8 @@ def main():
         subset_africa=not args.no_subset,
         variables=variables,
     )
-    output.to_netcdf(args.output)
-    LOG.info("Done. Output -> %s", args.output)
+    date_label = f"_{args.date}_{datetime.strptime(f'{args.time}', '%H%M').strftime('%H')}Z"
+    output.to_netcdf(args.output+f"{date_label}.nc")
+    LOG.info("Done. Output -> %s", args.output+f"{date_label}.nc")
 
 if __name__ == "__main__": main()

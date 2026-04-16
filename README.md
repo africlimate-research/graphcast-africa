@@ -13,6 +13,7 @@ Deconstructs the [DeepMind GraphCast/GenCast demo notebook](https://colab.resear
 ```bash
 pip install -e ".[dev]"
 python scripts/download_assets.py --assets ./assets
+<<<<<<< copilot/gpu-benchmarking-setup
 python scripts/run_forecast.py --source opendata --date 20240601 --time 0000 --lead-time 120
 python scripts/benchmark_gpu.py --source opendata --date 20240601 --time 0000 --lead-time 120 --warmup-runs 1 --benchmark-runs 3 --json
 ```
@@ -33,3 +34,6 @@ The benchmark output includes:
 - Benchmark rollout latency summary (`avg`, `min`, `max`, `p95`)
 - Throughput in lead-hours per second
 - GPU snapshot from `nvidia-smi` (when available)
+=======
+python scripts/run_forecast.py --source opendata --date 20260415--time 0000 --lead-time 120
+>>>>>>> main
