@@ -33,6 +33,5 @@ The benchmark output includes:
 - Benchmark rollout latency summary (`avg`, `min`, `max`, `p95`)
 - Throughput in lead-hours per second
 - GPU snapshot from `nvidia-smi` (when available)
-=======
-python scripts/run_forecast.py --source opendata --date 20260415--time 0000 --lead-time 120
->>>>>>> main
+
+
