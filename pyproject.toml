@@ -30,7 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gpu = ["jax[cuda12_pip]"]
-dev = ["pytest", "pytest-cov", "black", "ruff"]
+dev = ["black", "ruff"]
 
 [project.scripts]
 graphcast-africa = "scripts.run_forecast:main"
