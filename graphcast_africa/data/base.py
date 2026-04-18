@@ -18,6 +18,11 @@ class DataSource(ABC):
     grid           = GRID
     area           = AREA
 
+    def __init__(self, *, grid: list | None = None):
+        """Optionally override the class-level grid (e.g. ``[1.0, 1.0]`` for small model)."""
+        if grid is not None:
+            self.grid = grid
+
     def retrieve(self, date: str, time: str) -> tuple:
         datetimes = self._lagged_datetimes(date, time)
         LOG.info("Retrieving fields for %s", datetimes)

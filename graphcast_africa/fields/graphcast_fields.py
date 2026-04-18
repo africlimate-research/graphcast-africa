@@ -35,4 +35,20 @@ ASSET_FILES = [
     "stats/mean_by_level.nc",
     "stats/stddev_by_level.nc",
 ]
+
+# GraphCast small: 1° resolution, lighter mesh — faster on modest GPUs.
+# The small checkpoint lives under the "graphcast/" prefix in the GCS bucket
+# (consistent with the DeepMind demo notebook), unlike the operational model
+# which is published directly under "params/".
+GRID_SMALL = [1.0, 1.0]
+ASSET_FILES_SMALL = [
+    (
+        "params/GraphCast_small - ERA5 1979-2015 - resolution 1.0 - "
+        "pressure levels 13 - mesh 2to5 - precipitation input and output.npz"
+    ),
+    "stats/diffs_stddev_by_level.nc",
+    "stats/mean_by_level.nc",
+    "stats/stddev_by_level.nc",
+]
+
 GCS_BASE_URL = "https://storage.googleapis.com/dm_graphcast/{file}"

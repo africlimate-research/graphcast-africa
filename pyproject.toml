@@ -26,14 +26,16 @@ dependencies = [
     "python-dotenv",
     "tqdm",
     "multiurl",
+    "google-cloud-storage",
 ]
 
 [project.optional-dependencies]
 gpu = ["jax[cuda12_pip]"]
-dev = ["pytest", "pytest-cov", "black", "ruff"]
+dev = ["black", "ruff"]
 
 [project.scripts]
 graphcast-africa = "scripts.run_forecast:main"
+graphcast-africa-benchmark-gpu = "scripts.benchmark_gpu:main"
 
 [tool.ruff]
 line-length = 88
